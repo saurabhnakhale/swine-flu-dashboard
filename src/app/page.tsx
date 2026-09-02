@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { SwineFluRecord, DashboardFilterState, SwineFluApiResponse } from '@/lib/types';
+import { SwineFluRecord, DashboardFilterState } from '@/lib/types';
+import { fetchLiveSwineFluData } from '@/lib/dataService';
 import { Header } from '@/components/Header';
 import { KPIStats } from '@/components/KPIStats';
 import { FilterBar } from '@/components/FilterBar';
 import { AnalyticsSection } from '@/components/AnalyticsSection';
 import { PatientDataTable } from '@/components/PatientDataTable';
 import { PatientDetailModal } from '@/components/PatientDetailModal';
-import { RefreshCw, AlertTriangle, Database, Info } from 'lucide-react';
+import { RefreshCw, AlertTriangle, Database } from 'lucide-react';
 
 const INITIAL_FILTERS: DashboardFilterState = {
   searchQuery: '',
@@ -35,14 +36,12 @@ export default function DashboardPage() {
 
   const [selectedRecord, setSelectedRecord] = useState<SwineFluRecord | null>(null);
 
-  // Fetch Data Function from API route
+  // Fetch Data Function (Supports GitHub Pages & Static Export)
   const fetchData = useCallback(async (refresh = false) => {
     setIsLoading(true);
     setError(null);
     try {
-      const url = `/api/data${refresh ? '?refresh=true' : ''}`;
-      const res = await fetch(url);
-      const json: SwineFluApiResponse = await res.json();
+      const json = await fetchLiveSwineFluData(refresh);
 
       if (!json.success || !json.data) {
         throw new Error(json.error || 'Failed to parse Google Sheets CSV data');
