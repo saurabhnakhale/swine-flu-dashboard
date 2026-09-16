@@ -13,6 +13,26 @@ import { HospitalComparisonTable } from '@/components/HospitalComparisonTable';
 import { NagpurWeatherWidget } from '@/components/NagpurWeatherWidget';
 import { RefreshCw, AlertTriangle, Database } from 'lucide-react';
 
+// Helper to get today's date formatted as YYYY-MM-DD in IST/Local
+export function getTodayDateString(): string {
+  const now = new Date();
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
+  } catch {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+}
+
+const TODAY_STR = getTodayDateString();
+
 const INITIAL_FILTERS: DashboardFilterState = {
   searchQuery: '',
   year: 'ALL',
@@ -23,8 +43,8 @@ const INITIAL_FILTERS: DashboardFilterState = {
   sex: 'ALL',
   outcomeStatus: 'ALL',
   hospital: 'ALL',
-  fromDate: '',
-  toDate: '',
+  fromDate: TODAY_STR,
+  toDate: TODAY_STR,
 };
 
 export default function DashboardPage() {
