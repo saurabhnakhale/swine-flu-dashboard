@@ -54,6 +54,7 @@ export interface SwineFluRecord {
   zone: string;
   zoneClean: string;
   dateOfReporting: string;
+  parsedDate?: string | null;
   patientName: string;
   contactNumber: string;
   ageBracketRaw: string;
@@ -84,12 +85,15 @@ export interface SwineFluRecord {
 export interface DashboardFilterState {
   searchQuery: string;
   year: 'ALL' | '2025' | '2026';
+  month: string;
   regionCategory: string;
   zone: string;
   ageCategory: string;
   sex: string;
   outcomeStatus: string;
   hospital: string;
+  fromDate: string;
+  toDate: string;
 }
 
 export interface MonthlyTrendItem {

@@ -146,26 +146,81 @@ export function cleanZoneName(zoneRaw?: string): string {
   return clean;
 }
 
-export function parseMonthInfo(monthRaw?: string): { monthNormalized: string; monthNum: number } {
-  if (!monthRaw) return { monthNormalized: 'Jan', monthNum: 1 };
-  const rawLower = monthRaw.toLowerCase().trim();
+export function parseMonthInfo(monthRaw?: string, parsedDate?: string | null): { monthNormalized: string; monthNum: number } {
+  const rawLower = (monthRaw || '').toLowerCase().trim();
 
-  for (let i = 0; i < MONTH_NAMES.length; i++) {
-    if (rawLower.includes(MONTH_NAMES[i].toLowerCase())) {
-      return {
-        monthNormalized: MONTH_NAMES[i].substring(0, 3),
-        monthNum: i + 1,
-      };
+  if (rawLower) {
+    for (let i = 0; i < MONTH_NAMES.length; i++) {
+      const full = MONTH_NAMES[i].toLowerCase();
+      const short = full.substring(0, 3);
+      if (rawLower.includes(full) || rawLower.startsWith(short) || full.startsWith(rawLower)) {
+        return {
+          monthNormalized: MONTH_NAMES[i].substring(0, 3),
+          monthNum: i + 1,
+        };
+      }
     }
   }
+
+  // Fallback: extract month from parsed date (YYYY-MM-DD) if month field was blank
+  if (parsedDate) {
+    const match = parsedDate.match(/^\d{4}-(\d{2})-\d{2}$/);
+    if (match) {
+      const mNum = parseInt(match[1], 10);
+      if (mNum >= 1 && mNum <= 12) {
+        return {
+          monthNormalized: MONTH_NAMES[mNum - 1].substring(0, 3),
+          monthNum: mNum,
+        };
+      }
+    }
+  }
+
   return { monthNormalized: 'Jan', monthNum: 1 };
+}
+
+export function parseDateToISO(dateStr?: string, fallbackYear?: number): string | null {
+  if (!dateStr) return null;
+  const clean = dateStr.trim().split(' ')[0];
+  if (!clean) return null;
+
+  // Format: YYYY-MM-DD
+  const yyyymmdd = clean.match(/^(\d{4})[-/.](0?[1-9]|1[0-2])[-/.](0?[1-9]|[12]\d|3[01])$/);
+  if (yyyymmdd) {
+    return `${yyyymmdd[1]}-${yyyymmdd[2].padStart(2, '0')}-${yyyymmdd[3].padStart(2, '0')}`;
+  }
+
+  // Format: DD/MM/YYYY or DD.MM.YYYY or DD-MM-YYYY
+  const ddmmyyyy = clean.match(/^(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](\d{4}|\d{2})$/);
+  if (ddmmyyyy) {
+    const d = ddmmyyyy[1].padStart(2, '0');
+    const m = ddmmyyyy[2].padStart(2, '0');
+    let y = ddmmyyyy[3];
+    if (y.length === 2) y = `20${y}`;
+    return `${y}-${m}-${d}`;
+  }
+
+  // Format: DD/MM (no year)
+  const ddmm = clean.match(/^(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])$/);
+  if (ddmm) {
+    const d = ddmm[1].padStart(2, '0');
+    const m = ddmm[2].padStart(2, '0');
+    const y = fallbackYear || 2025;
+    return `${y}-${m}-${d}`;
+  }
+
+  return null;
 }
 
 export function sanitizeRecord(raw: RawSwineFluRecord, year: YearSource, index: number): SwineFluRecord {
   const srNoStr = raw['Sr.no'] || raw['SR. NO. '] || raw['SR. NO.'] || `${index + 1}`;
   const srNo = parseInt(srNoStr, 10) || index + 1;
+
+  const dateOfReporting = (raw['DATE OF REPORTING'] || '').trim();
+  const parsedDate = parseDateToISO(dateOfReporting, year);
+
   const monthRaw = (raw['Month'] || raw['Month '] || '').trim();
-  const { monthNormalized, monthNum } = parseMonthInfo(monthRaw);
+  const { monthNormalized, monthNum } = parseMonthInfo(monthRaw, parsedDate);
 
   const zoneRaw = (raw['ZONE'] || '').trim();
   const zoneClean = cleanZoneName(zoneRaw);
@@ -215,7 +270,8 @@ export function sanitizeRecord(raw: RawSwineFluRecord, year: YearSource, index: 
     monthNum,
     zone: zoneRaw || 'Unspecified Zone',
     zoneClean,
-    dateOfReporting: (raw['DATE OF REPORTING'] || '').trim(),
+    dateOfReporting,
+    parsedDate,
     patientName,
     contactNumber,
     ageBracketRaw,

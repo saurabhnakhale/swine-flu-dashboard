@@ -9,17 +9,22 @@ import { FilterBar } from '@/components/FilterBar';
 import { AnalyticsSection } from '@/components/AnalyticsSection';
 import { PatientDataTable } from '@/components/PatientDataTable';
 import { PatientDetailModal } from '@/components/PatientDetailModal';
+import { HospitalComparisonTable } from '@/components/HospitalComparisonTable';
+import { NagpurWeatherWidget } from '@/components/NagpurWeatherWidget';
 import { RefreshCw, AlertTriangle, Database } from 'lucide-react';
 
 const INITIAL_FILTERS: DashboardFilterState = {
   searchQuery: '',
   year: 'ALL',
+  month: 'ALL',
   regionCategory: 'ALL',
   zone: 'ALL',
   ageCategory: 'ALL',
   sex: 'ALL',
   outcomeStatus: 'ALL',
   hospital: 'ALL',
+  fromDate: '',
+  toDate: '',
 };
 
 export default function DashboardPage() {
@@ -86,34 +91,65 @@ export default function DashboardPage() {
         }
       }
 
-      // 2. Region Category
+      // 2. Month Filter
+      if (filters.month && filters.month !== 'ALL') {
+        const matchesMonthNorm = r.monthNormalized === filters.month;
+        let matchesParsedMonth = false;
+        if (r.parsedDate) {
+          const parts = r.parsedDate.split('-');
+          if (parts.length >= 2) {
+            const mNum = parseInt(parts[1], 10);
+            const shortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            if (shortNames[mNum - 1] === filters.month) {
+              matchesParsedMonth = true;
+            }
+          }
+        }
+        if (!matchesMonthNorm && !matchesParsedMonth) {
+          return false;
+        }
+      }
+
+      // 3. Region Category
       if (filters.regionCategory !== 'ALL' && r.regionCategory !== filters.regionCategory) {
         return false;
       }
 
-      // 3. Zone
+      // 4. Zone
       if (filters.zone !== 'ALL' && r.zoneClean !== filters.zone) {
         return false;
       }
 
-      // 4. Age Category
+      // 5. Age Category
       if (filters.ageCategory !== 'ALL' && r.ageCategory !== filters.ageCategory) {
         return false;
       }
 
-      // 5. Gender
+      // 6. Gender
       if (filters.sex !== 'ALL' && r.sex !== filters.sex) {
         return false;
       }
 
-      // 6. Outcome Status
+      // 7. Outcome Status
       if (filters.outcomeStatus !== 'ALL' && r.outcomeStatus !== filters.outcomeStatus) {
         return false;
       }
 
-      // 7. Hospital
+      // 8. Hospital
       if (filters.hospital !== 'ALL' && r.hospitalName !== filters.hospital) {
         return false;
+      }
+
+      // 9. Date Range (From Date & To Date)
+      if (filters.fromDate && filters.fromDate.trim() !== '') {
+        if (r.parsedDate && r.parsedDate < filters.fromDate) {
+          return false;
+        }
+      }
+      if (filters.toDate && filters.toDate.trim() !== '') {
+        if (r.parsedDate && r.parsedDate > filters.toDate) {
+          return false;
+        }
       }
 
       return true;
@@ -129,7 +165,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 font-sans flex flex-col selection:bg-emerald-500 selection:text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col selection:bg-emerald-500 selection:text-white">
       
       {/* Header Bar */}
       <Header
@@ -147,17 +183,17 @@ export default function DashboardPage() {
         
         {/* Error Notification */}
         {error && (
-          <div className="mb-6 p-4 bg-rose-950/60 border border-rose-800/80 rounded-2xl text-rose-200 text-sm flex items-center justify-between shadow-xl">
+          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-sm flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
               <div>
-                <strong className="block font-semibold">Failed to Sync Live Data</strong>
+                <strong className="block font-bold">Failed to Sync Live Data</strong>
                 <span className="text-xs opacity-90">{error}</span>
               </div>
             </div>
             <button
               onClick={() => fetchData(true)}
-              className="px-3 py-1.5 bg-rose-900 hover:bg-rose-800 text-rose-100 rounded-xl text-xs font-semibold transition-colors"
+              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-colors"
             >
               Retry Sync
             </button>
@@ -166,12 +202,15 @@ export default function DashboardPage() {
 
         {/* Loading Spinner Skeleton */}
         {isLoading && allRecords.length === 0 ? (
-          <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-slate-400">
-            <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
-            <p className="text-sm font-medium">Fetching Live Swine Flu Line List from Google Sheets...</p>
+          <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 text-slate-500">
+            <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin" />
+            <p className="text-sm font-semibold">Fetching Live Swine Flu Line List from Google Sheets...</p>
           </div>
         ) : (
           <>
+            {/* Live Weather Small Cards (IMD Regional Met Centre Nagpur) */}
+            <NagpurWeatherWidget />
+
             {/* Top KPI Cards */}
             <KPIStats records={finalFilteredRecords} allRecords={yearFilteredRecords} />
 
@@ -187,6 +226,9 @@ export default function DashboardPage() {
 
             {/* Interactive Visual Analytics (Charts) */}
             <AnalyticsSection records={finalFilteredRecords} />
+
+            {/* Hospital 2025 vs 2026 Comparison Table */}
+            <HospitalComparisonTable records={finalFilteredRecords} />
 
             {/* Line List Data Table */}
             <PatientDataTable
@@ -205,16 +247,16 @@ export default function DashboardPage() {
       />
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-800/80 bg-slate-950/80 py-6 text-center text-xs text-slate-500">
+      <footer className="mt-auto border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center gap-2 font-medium">
+            <Database className="w-4 h-4 text-emerald-600" />
             <span>Swine Flu Surveillance Dashboard • Powered by Next.js & Published Google Sheets</span>
           </div>
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex items-center gap-4 text-slate-500 font-medium">
             <span>Sources: <strong>Line list 2025</strong> & <strong>Line List 2026</strong></span>
             <span>•</span>
-            <span className="text-emerald-400 font-medium">Auto Live Feed</span>
+            <span className="text-emerald-700 font-semibold">Auto Live Feed</span>
           </div>
         </div>
       </footer>
